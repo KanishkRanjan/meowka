@@ -27,23 +27,23 @@ const vehicleSchema = new mongoose.Schema({
   max_speed: {
     type: Number,
     default: 120,
-    distance: {
-      type: Number,
-      default: 0,
-    },
-    total_distance: {
-      type: Number,
-      default: 0,
-    },
-    today_running: {
-      type: Number,
-      default: 0,
-    },
-    status: {
-      type: String,
-      enum: ["Moving", "Parked", "Idle"], 
-      default: "Idle", 
-    },
+  },
+  distance: {
+    type: Number,
+    default: 0,
+  },
+  total_distance: {
+    type: Number,
+    default: 0,
+  },
+  today_running: {
+    type: Number,
+    default: 0,
+  },
+  status: {
+    type: String,
+    enum: ["Moving", "Parked", "Idle", "Slow Moving"], 
+    default: "Idle", 
   },
 });
 

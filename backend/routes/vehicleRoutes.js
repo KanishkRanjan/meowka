@@ -206,13 +206,14 @@ router.get('/trackdata/:id', async (req, res) => {
     console.log('Start:', startDateTime.toISOString().replace('Z', '+00:00'));
     console.log('End:', endDateTime.toISOString().replace('Z', '+00:00'));
 
-    //Add less than equal to endDateTime
+    // Use start and end times to bound the query
     const trackData = await TrackPoint.find({
       vehicleId,
       timestamp: {
-        $gte: new Date(startDateTime.toISOString().replace('Z', '+00:00')),
+        $gte: new Date(startDateTime.toISOString()),
+        $lte: new Date(endDateTime.toISOString())
       }
-    });
+    }).sort({ timestamp: 1 }); // Sort chronologically
 
     res.status(200).json({ 
       success: true, 

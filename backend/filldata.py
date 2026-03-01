@@ -1,11 +1,14 @@
-import requests
-import time
+import asyncio
+import json
 import random
-from datetime import datetime, timedelta
+import math
+from datetime import datetime
+import websockets
 
 # Configuration
-BASE_URL = "http://localhost:3000/api/vehicles"  # Change this to your actual API base URL
-VEHICLE_IDS = ["VH002", "VH003"]  # Your vehicle IDs
+URI = os.getenv("WS_URI", "ws://localhost:3000")
+NUM_VEHICLES = 10
+VEHICLE_PREFIX = "VH"
 
 # Coordinates from your first set (main route)
 ROUTE_1 = [
@@ -34,147 +37,116 @@ ROUTE_2 = [
     [73.86492, 18.50606], [73.86613, 18.50608]
 ]
 
-# Define vehicle routes
-VEHICLE_ROUTES = {
-    "VH002": ROUTE_1,
-    "VH003": ROUTE_2
-}
+def jitter_coordinate(coord, max_offset=0.00030):
+    """Add a tiny random offset to a [lon, lat] coordinate to prevent overlapping."""
+    lon_offset = random.uniform(-max_offset, max_offset)
+    lat_offset = random.uniform(-max_offset, max_offset)
+    return [coord[0] + lon_offset, coord[1] + lat_offset]
 
-        
-        # print(f"Generated {len(all_data)} tracking points for vehicle {vehicle_id}")
-        
-        # # Submit data to API
-        # for point in all_data:
-        #     try:
-        #         response = requests.post(
-        #             f"{BASE_URL}/addinfo/{vehicle_id}", 
-        #             json=point
-        #         )
-                
-        #         if response.status_code == 200:
-        #             print(f"Successfully added point for {vehicle_id} at {point['timestamp']}")
-        #         else:
-        #             print(f"Failed to add point: {response.status_code} - {response.text}")
-                
-        #         # Small delay to prevent overwhelming the server
-        #         time.sleep(0.2)
-                
-        #     except Exception as e:
-        #         print(f"Error adding point: {str(e)}")
-
-from datetime import datetime, timedelta
-
-def generate_timestamps(date_str, interval_seconds=10):
-    """
-    Generate timestamps from 12:00 AM to 12:00 PM on a given date.
-    
-    Parameters:
-        date_str (str): Date in 'YYYY-MM-DD' format
-        interval_seconds (int): Gap between timestamps in seconds
-    
-    Returns:
-        list of str: List of ISO-formatted timestamps
-    """
-    start_time = datetime.strptime(date_str + "T00:00:00", "%Y-%m-%dT%H:%M:%S")
-    end_time = datetime.strptime(date_str + "T00:00:00", "%Y-%m-%dT%H:%M:%S")
-    end_time += timedelta(days=1)
-
-    timestamps = []
-    current_time = start_time
-
-    while current_time <= end_time:
-        timestamps.append(current_time.isoformat())
-        current_time += timedelta(seconds=interval_seconds)
-
-    return timestamps
-
+def generate_jittered_route(base_route):
+    """Return a new route based on the base route with jittered coordinates."""
+    return [jitter_coordinate(coord) for coord in base_route]
 
 def smooth_route_generator(route, step_size=0.00005):
-        """
-        Smoothly iterate through a list of coordinates, interpolating between points.
+    """
+    Smoothly iterate through a list of coordinates, interpolating between points.
+    Yields indefinitely for circular route simulation.
+    """
+    def interpolate(p1, p2, t):
+        """Linearly interpolate between p1 and p2 with t in [0, 1]"""
+        lon = p1[0] + (p2[0] - p1[0]) * t
+        lat = p1[1] + (p2[1] - p1[1]) * t
+        return (lon, lat)
 
-        Parameters:
-            route (list): List of [lon, lat] points
-            step_size (float): Small step for interpolation (smaller = smoother)
+    def distance(p1, p2):
+        """Euclidean distance"""
+        return math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
 
-        Yields:
-            tuple: (longitude, latitude)
-        """
-        import math
+    idx = 0
+    while True:
+        start = route[idx]
+        end = route[(idx + 1) % len(route)]
+        dist = distance(start, end)
+        steps = max(int(dist / step_size), 1)
 
-        def interpolate(p1, p2, t):
-            """Linearly interpolate between p1 and p2 with t in [0, 1]"""
-            lon = p1[0] + (p2[0] - p1[0]) * t
-            lat = p1[1] + (p2[1] - p1[1]) * t
-            return (lon, lat)
+        for i in range(steps):
+            t = i / steps
+            yield interpolate(start, end, t)
 
-        def distance(p1, p2):
-            """Euclidean distance"""
-            return math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+        idx = (idx + 1) % len(route)
 
-        idx = 0
-        while True:
-            start = route[idx]
-            end = route[(idx + 1) % len(route)]
-            dist = distance(start, end)
-            steps = max(int(dist / step_size), 1)
+async def simulate_vehicle(vehicle_id, route):
+    """Connect to WebSocket and periodically send telemetry data for one vehicle."""
+    gen = smooth_route_generator(route, step_size=0.00005)
+    speed = random.uniform(30.0, 70.0)
+    fuel = random.uniform(40.0, 100.0)
+    
+    # Random initial wait to stagger startups
+    await asyncio.sleep(random.uniform(0.1, 2.0))
 
-            for i in range(steps):
-                t = i / steps
-                yield interpolate(start, end, t)
-
-            idx = (idx + 1) % len(route)
-
-
-
-
-
-def fill_data(timestamp_list , vehicle_id,route):
-    gen = smooth_route_generator(route)
-
-    speed = 50
-    fuel = 43
-
-    for timestamp in timestamp_list:
-        # Randomly increase or decrease speed by up to 5 units
-        speed += random.uniform(-3, 3)
-        speed = max(speed, 0)  # prevent negative speed
-
-        # Randomly increase or decrease fuel by up to 1 unit
-        fuel += random.uniform(-0.5, 0.5)
-        fuel = max(fuel, 0)  # prevent negative fuel
-
-        print(f"Timestamp: {timestamp}, Speed: {speed:.2f}, Fuel: {fuel:.2f}")
-        print(next(gen))
-        point = {
-            "latitude": next(gen)[1],
-            "longitude": next(gen)[0],
-            "timestamp": timestamp,
-            "speed": speed,
-            "fuel": fuel
-        }
+    while True:
         try:
-            response = requests.post(
-                f"{BASE_URL}/addinfo/{vehicle_id}", 
-                json=point
-            )
-            if response.status_code == 200:
-                print(f"Successfully added point for {vehicle_id} at {point['timestamp']}")
-            else:
-                print(f"Failed to add point: {response.status_code} - {response.text}")
-
-            time.sleep(0.02)
+            async with websockets.connect(URI) as websocket:
+                print(f"[{vehicle_id}] Connected to {URI}")
+                while True:
+                    # Randomly adjust speed within reasonable bounds (0 to 120 km/h)
+                    speed += random.uniform(-5, 5)
+                    speed = max(0, min(speed, 120)) 
+                    
+                    # Slowly decrease fuel, refuel if empty
+                    fuel -= random.uniform(0.05, 0.2) 
+                    if fuel <= 0.5:
+                        fuel = 100.0
+                    
+                    point = next(gen)
+                    timestamp = datetime.now().isoformat()
+                    
+                    payload = {
+                        "vehicle_id": vehicle_id,
+                        "latitude": point[1],
+                        "longitude": point[0],
+                        "speed": speed,
+                        "fuelLeft": fuel,
+                        "timestamp": timestamp
+                    }
+                    
+                    try:
+                        await websocket.send(json.dumps(payload))
+                        print(f"[{vehicle_id}] Sent -> Speed: {speed:.1f}, Fuel: {fuel:.1f} at {timestamp}")
+                    except websockets.ConnectionClosed:
+                        raise  # Caught outer trying to connect
+                    
+                    # Heartbeat interval every 2-5 seconds
+                    await asyncio.sleep(random.uniform(2.0, 5.0))
+        
+        except (websockets.ConnectionClosed, ConnectionRefusedError, OSError) as e:
+            print(f"[{vehicle_id}] Connection error: {e}. Retrying in 5s...")
+            await asyncio.sleep(5)
         except Exception as e:
-            print(f"Error adding point: {str(e)}")
+            print(f"[{vehicle_id}] Unexpected error: {e}")
+            await asyncio.sleep(5)
 
-
-
+async def main():
+    print("Starting Multi-Vehicle IoT Simulator 24/7...")
+    tasks = []
+    
+    for i in range(1, NUM_VEHICLES + 1):
+        v_id = f"{VEHICLE_PREFIX}{i:03d}"
+        # Give approximately half on ROUTE_1 and half on ROUTE_2
+        base_route = ROUTE_1 if i % 2 == 1 else ROUTE_2
+        
+        # Add jitter to create unique lanes/paths
+        jittered_route = generate_jittered_route(base_route)
+        
+        # Schedule the vehicle task
+        task = asyncio.create_task(simulate_vehicle(v_id, jittered_route))
+        tasks.append(task)
+    
+    # Run forever
+    await asyncio.gather(*tasks)
 
 if __name__ == "__main__":
-    print("Starting vehicle tracking data simulation...")
-    # simulate_one_day()
-    ts_list = generate_timestamps("2025-04-14");
-
-    for vehicle_id, route in VEHICLE_ROUTES.items():
-        fill_data(ts_list, vehicle_id,route)
-    print("Simulation complete!")
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nSimulation stopped safely.")

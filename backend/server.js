@@ -3,6 +3,8 @@ const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const vehicleRoutes = require('./routes/vehicleRoutes');
+const http = require('http');
+const configureWebSocket = require('./websocket');
 
 
 dotenv.config();
@@ -28,8 +30,11 @@ app.get('/', (req, res) => {
   res.send('Vehicle Tracking API is running');
 });
 
+const server = http.createServer(app);
+configureWebSocket(server);
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port http://localhost:${PORT}`);
 }); 
 
