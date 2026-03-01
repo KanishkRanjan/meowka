@@ -1,0 +1,107 @@
+.loading-screen-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--bg-primary);
+}
+
+.loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: var(--bg-surface);
+  padding: 48px 64px;
+  border-radius: var(--border-radius-extreme);
+  box-shadow: var(--shadow-subtle);
+  border: var(--border-transparent);
+  gap: 32px;
+  animation: floatIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.loading-spinner {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 4px solid var(--bg-primary);
+  border-top-color: var(--accent-primary);
+  animation: spin 1s cubic-bezier(0.6, 0.2, 0.4, 0.8) infinite;
+}
+
+.spinner-core {
+  width: 24px;
+  height: 24px;
+  background-color: var(--text-main);
+  border-radius: 50%;
+  box-shadow: 0 0 16px rgba(45, 45, 45, 0.2);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.loading-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.text-primary {
+  font-family: var(--font-heading);
+  color: var(--text-main);
+  font-size: 1.25rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+
+.text-secondary {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.loading-progress {
+  width: 240px;
+  height: 6px;
+  background-color: var(--bg-primary);
+  border-radius: var(--border-radius-pill);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.progress-bar {
+  height: 100%;
+  width: 30%;
+  background-color: var(--accent-primary);
+  border-radius: var(--border-radius-pill);
+  animation: loadProgress 2s ease-in-out infinite alternate;
+}
+
+/* Animations */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.85); opacity: 0.7; }
+}
+
+@keyframes loadProgress {
+  0% { width: 10%; transform: translateX(0); }
+  100% { width: 40%; transform: translateX(180px); }
+}
+
+@keyframes floatIn {
+  0% { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}

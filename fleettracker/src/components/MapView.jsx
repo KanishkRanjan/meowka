@@ -6,10 +6,11 @@ import {
   Popup,
   useMap,
   Polyline,
+  useMapEvents,
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import carImage from "/src/assets/car.png";
+import busImage from "/src/assets/bus.png";
 
 // Fix Leaflet's default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -235,6 +236,72 @@ const MapView = ({
   const [displayedTrackData, setDisplayedTrackData] = useState([]);
   const [speed, setSpeed] = useState(0);
   const [status, setStatus] = useState("Idle");
+  const [zoomLevel, setZoomLevel] = useState(12);
+
+  // Listener to accurately track zoom levels
+  const ZoomListener = () => {
+    const map = useMapEvents({
+      zoomend: () => setZoomLevel(map.getZoom()),
+      zoomstart: () => setZoomLevel(map.getZoom()),
+    });
+    useEffect(() => {
+      setZoomLevel(map.getZoom());
+    }, [map]);
+    return null;
+  };
+
+  // Component to handle map recentering when a vehicle is selected
+  const MapCenter = ({ selectedVehicle, showTrackHistory, displayedTrackData }) => {
+    const map = useMap();
+    useEffect(() => {
+      // If showing history, fit the map to the entire history route bounds ONCE when data loads
+      if (showTrackHistory && displayedTrackData && displayedTrackData.length > 0) {
+        const latLngs = displayedTrackData
+          .map(pt => pt.location)
+          .filter(loc => Array.isArray(loc) && loc.length === 2 && !isNaN(loc[0]) && !isNaN(loc[1]))
+          .map(loc => [parseFloat(loc[0]), parseFloat(loc[1])]);
+          
+        if (latLngs.length > 0) {
+          const bounds = L.latLngBounds(latLngs);
+          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, duration: 1.5 });
+        }
+      } 
+      // Otherwise, focus on the live vehicle if selected
+      else if (selectedVehicle && selectedVehicle.position && !showTrackHistory) {
+        map.flyTo(
+          [parseFloat(selectedVehicle.position[0]), parseFloat(selectedVehicle.position[1])],
+          15, // Zoom level when focused
+          {
+            duration: 1.5, // Smoother animation
+          }
+        );
+      }
+    }, [selectedVehicle, showTrackHistory, displayedTrackData, map]); // Removed currentPosition to avoid panning on every playback tick
+    return null;
+  };
+
+  // Calculate heading based on two lat/lng points
+  const calculateHeading = (lat1, lon1, lat2, lon2) => {
+    if (lat1 === lat2 && lon1 === lon2) return 0;
+    
+    // Convert to radians
+    const radLat1 = lat1 * Math.PI / 180;
+    const radLat2 = lat2 * Math.PI / 180;
+    const deltaLon = (lon2 - lon1) * Math.PI / 180;
+
+    const y = Math.sin(deltaLon) * Math.cos(radLat2);
+    const x = Math.cos(radLat1) * Math.sin(radLat2) -
+              Math.sin(radLat1) * Math.cos(radLat2) * Math.cos(deltaLon);
+    
+    // Convert back to degrees
+    let heading = Math.atan2(y, x) * 180 / Math.PI;
+    
+    // Normalize to 0-360
+    heading = (heading + 360) % 360;
+    
+    return heading;
+  };
+
 
   //formating date for user readable format
   const formatDate = (date) => {
@@ -308,18 +375,32 @@ const MapView = ({
     ];
   };
 
-  // Custom marker icons based on vehicle type
-  const createVehicleIcon = (isSelected, status) => {
+  // Custom marker icons based on vehicle type and zoom level
+  const createVehicleIcon = (isSelected, status, heading = 0) => {
+    // Uber-style sizing: scale size according to zoom level
+    let size = 48; // default
+    if (zoomLevel <= 11) size = 12; // Far away -> tiny dots
+    else if (zoomLevel === 12) size = 20; 
+    else if (zoomLevel === 13) size = 28;
+    else if (zoomLevel === 14) size = 36;
+    else if (zoomLevel >= 15) size = 48; // Zoomed in -> full size
+
+    const isTiny = size <= 14;
+
+    // Render simple dark geometric dots when zoomed far out
+    const imageHtml = isTiny && !isSelected
+        ? `<div style="width: ${size*0.6}px; height: ${size*0.6}px; background-color: #1a1a1a; border-radius: 50%; border: 1.5px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2; position: relative;"></div>`
+        : `<img src="${busImage}" style="height: ${size}px; transform: rotate(${heading}deg); transition: transform 0.3s ease, height 0.2s ease; mix-blend-mode: multiply; z-index: 2; position: relative;" />`;
 
     return L.divIcon({
       className: `vehicle-marker ${isSelected ? "selected" : ""}`,
       html: `
-        <div class="marker-icon-img status-badge ${((status || "Parked")).toLocaleString().toLowerCase()}">
-          <img src="${carImage}" style="height: 28px;" />
+        <div class="modern-marker-img" style="display: flex; justify-content: center; align-items: center; width: ${size}px; height: ${size}px; position: relative;">
+          ${imageHtml}
         </div>
       `,
-      iconSize: [44, 44],
-      iconAnchor: [22, 22],
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
     });
   };
 
@@ -366,33 +447,50 @@ const MapView = ({
         doubleClickZoom={false}
       >
         <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        />
+        <ZoomListener />
+        <MapCenter 
+          selectedVehicle={selectedVehicle}
+          showTrackHistory={showTrackHistory}
+          displayedTrackData={displayedTrackData}
         />
 
         {vehicles &&
-          vehicles.map((vehicle) => (
-            <Marker
-              key={vehicle.id}
-       
-              position={[
-                parseFloat(vehicle.position[0]),
-                parseFloat(vehicle.position[1]),
-              ]}
-              icon={createVehicleIcon(
-                vehicle.type,
-                selectedVehicle && selectedVehicle.id === vehicle.id,
-                vehicle.status || "Parked"
-              )}
-            >
-              <Popup>
-                <div>
-                  <h3>{vehicle.name}</h3>
-                  <p>{vehicle.status}</p>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
+          vehicles.map((vehicle) => {
+             // Hide the static marker if we are currently showing track history for this vehicle
+             if (showTrackHistory && selectedVehicle && selectedVehicle.id === vehicle.id) {
+               return null;
+             }
+
+             // For general view, we need heading. Since we only have current position in 'vehicles', 
+             // ideally we need previous position in the data stream. Assuming vehicle.heading exists.
+             // If not, it defaults to 0. You can also derive from history if present.
+             const heading = vehicle.heading || 0;
+             return (
+              <Marker
+                key={vehicle.id}
+         
+                position={[
+                  parseFloat(vehicle.position[0]),
+                  parseFloat(vehicle.position[1]),
+                ]}
+                icon={createVehicleIcon(
+                  selectedVehicle && selectedVehicle.id === vehicle.id,
+                  vehicle.status || "Parked",
+                  heading
+                )}
+              >
+                <Popup>
+                  <div>
+                    <h3>{vehicle.name}</h3>
+                    <p>{vehicle.status}</p>
+                  </div>
+                </Popup>
+              </Marker>
+             )
+          })}
         {showTrackHistory &&
           displayedTrackData.length > 0 &&
           displayedTrackData[currentPosition] &&
@@ -401,15 +499,24 @@ const MapView = ({
           !isNaN(parseFloat(displayedTrackData[currentPosition].location[0])) &&
           !isNaN(
             parseFloat(displayedTrackData[currentPosition].location[1])
-          ) && (
-            <Marker
-              position={[
-                parseFloat(displayedTrackData[currentPosition].location[0]),
-                parseFloat(displayedTrackData[currentPosition].location[1]),
-              ]}
-              icon={createVehicleIcon(false, "track-history")}
-            />
-          )}
+          ) && (() => {
+            // Calculate heading based on previous position if available
+            let heading = 0;
+            if (currentPosition > 0 && displayedTrackData[currentPosition - 1]) {
+               const prev = displayedTrackData[currentPosition - 1].location;
+               const curr = displayedTrackData[currentPosition].location;
+               heading = calculateHeading(parseFloat(prev[0]), parseFloat(prev[1]), parseFloat(curr[0]), parseFloat(curr[1]));
+            }
+            return (
+              <Marker
+                position={[
+                  parseFloat(displayedTrackData[currentPosition].location[0]),
+                  parseFloat(displayedTrackData[currentPosition].location[1]),
+                ]}
+                icon={createVehicleIcon(false, "track-history", heading)}
+              />
+            )
+          })()}
 
         {/* Add polyline for track history if data is available */}
         {displayedTrackData.length > 0 && (

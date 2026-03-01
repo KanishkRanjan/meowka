@@ -20,9 +20,6 @@ const VehicleList = ({ vehicles, onSelectVehicle, selectedVehicle }) => {
                 <h3>{vehicle.name}</h3>
                 <p>{vehicle.type}</p>
               </div>
-              <div className={`status-message ${vehicle.status.toLowerCase()}`}>
-                {vehicle.status}
-              </div>
             </div>
             
             <div className="vehicle-details">
@@ -60,12 +57,17 @@ const VehicleList = ({ vehicles, onSelectVehicle, selectedVehicle }) => {
               </div>
             )}
             
-            {vehicle.number_plate && (
-              <div className="number-plate">
-                <span className="number-plate-label">Plate</span>
-                <span className="number-plate-value">{vehicle.number_plate}</span>
+            <div className="vehicle-footer-row">
+              {vehicle.number_plate ? (
+                <div className="number-plate-inline">
+                  <span className="plate-badge">{vehicle.number_plate}</span>
+                </div>
+              ) : <div></div>}
+              
+              <div className={`status-message ${vehicle.status.toLowerCase().replace(/\s+/g, '-')}`}>
+                {vehicle.status}
               </div>
-            )}
+            </div>
           </div>
         );
       })}

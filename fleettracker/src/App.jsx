@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./App.css";
 import VehicleList from "./components/VehicleList";
 import MapView from "./components/MapView";
 import VehicleDetail from "./components/VehicleDetail";
+import LoadingScreen from "./components/LoadingScreen";
+import TitleEffect from "./components/TitleEffect";
 
 function App() {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -14,13 +16,33 @@ function App() {
   const [trackData, setTrackData] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Store previous vehicles to calculate heading
+  const prevVehiclesRef = useRef([]);
+
+  // Calculate heading based on two lat/lng points
+  const calculateHeading = (lat1, lon1, lat2, lon2) => {
+    if (lat1 === lat2 && lon1 === lon2) return 0;
+    
+    const radLat1 = lat1 * Math.PI / 180;
+    const radLat2 = lat2 * Math.PI / 180;
+    const deltaLon = (lon2 - lon1) * Math.PI / 180;
+
+    const y = Math.sin(deltaLon) * Math.cos(radLat2);
+    const x = Math.cos(radLat1) * Math.sin(radLat2) -
+              Math.sin(radLat1) * Math.cos(radLat2) * Math.cos(deltaLon);
+    
+    let heading = Math.atan2(y, x) * 180 / Math.PI;
+    heading = (heading + 360) % 360;
+    return heading;
+  };
+
   //fetching vehicles from backend
   useEffect(() => {
-    const fetchVehicles = async () => {
+    const fetchVehicles = async (isInitial = false) => {
       try {
-        setLoading(true);
+        if (isInitial) setLoading(true);
         const response = await fetch(
-          "https://meowka-backend.onrender.com/api/vehicles/getall?limit=10"
+          `${import.meta.env.VITE_API_BASE_URL}/api/vehicles/getall?limit=100`
         );
 
         if (!response.ok) {
@@ -33,42 +55,78 @@ function App() {
           throw new Error("API response format is not as expected");
         }
 
-        const vehicles = responseData.data;
-        console.log("Vehicles New : ", vehicles[0]);
+        const vehiclesData = responseData.data;
+        const previousVehicles = prevVehiclesRef.current;
+        
         // Make sure to include all the fields from the backend
-        const transformedData = vehicles.map((vehicle, index) => ({
-          id: vehicle.vehicle_id || index + 1,
-          name: vehicle.name,
-          type: vehicle.type,
-          status: vehicle.status || "Parked",
-          speed: (vehicle.speed.toFixed(2)) || 0,
-          distance: vehicle.distance || 0,
-          fuel: Number(vehicle.fuel) || 0,
-          position: [
-            vehicle.location_coordinates.latitude,
-            vehicle.location_coordinates.longitude,
-          ],
-          owner: vehicle.owner,
-          last_service_date: vehicle.last_service_date,
-          next_service_due: vehicle.next_service_due,
-          location_coordinates: vehicle.location_coordinates,
-          number_plate: vehicle.number_plate,
-          vehicle_id: vehicle.vehicle_id,
-          total_distance: vehicle.total_distance,
-          max_speed: vehicle.max_speed || 120,
-          today_running: vehicle.today_running || 0,
-        }));
+        const transformedData = vehiclesData.map((vehicle, index) => {
+          const id = vehicle.vehicle_id || index + 1;
+          const lat = vehicle.location_coordinates.latitude;
+          const lng = vehicle.location_coordinates.longitude;
+          
+          let heading = 0;
+          const prevVehicle = previousVehicles.find(v => v.id === id);
+          
+          if (prevVehicle && prevVehicle.position) {
+            const [prevLat, prevLng] = prevVehicle.position;
+            // Only update heading if the vehicle actually moved
+            if (lat !== prevLat || lng !== prevLng) {
+               heading = calculateHeading(prevLat, prevLng, lat, lng);
+            } else {
+               heading = prevVehicle.heading || 0; // Keep old heading if stationary
+            }
+          }
 
+          return {
+            id,
+            name: vehicle.name,
+            type: vehicle.type,
+            status: vehicle.status || "Parked",
+            speed: vehicle.speed ? vehicle.speed.toFixed(2) : "0.00",
+            distance: vehicle.distance ? vehicle.distance.toFixed(2) : "0.00",
+            fuel: Number(vehicle.fuel) || 0,
+            position: [lat, lng],
+            heading,
+            owner: vehicle.owner,
+            last_service_date: vehicle.last_service_date,
+            next_service_due: vehicle.next_service_due,
+            location_coordinates: vehicle.location_coordinates,
+            number_plate: vehicle.number_plate,
+            vehicle_id: vehicle.vehicle_id,
+            total_distance: vehicle.total_distance ? vehicle.total_distance.toFixed(2) : "0.00",
+            max_speed: (vehicle.max_speed || 120).toFixed(2),
+            today_running: vehicle.today_running ? vehicle.today_running.toFixed(2) : "0.00",
+          };
+        });
+
+        prevVehiclesRef.current = transformedData;
+        
         setVehicles(transformedData);
-        console.log("Loaded vehicles:", transformedData);
+        // Ensure our currently selected vehicle is also updated with fresh live data
+        setSelectedVehicle(prev => {
+          if (!prev) return prev;
+          const updated = transformedData.find(v => v.id === prev.id);
+          return updated || prev;
+        });
+
       } catch (err) {
         console.error("Error fetching vehicles:", err);
         setError(err.message);
       } finally {
-        setLoading(false);
+        if (isInitial) setLoading(false);
       }
     };
-    fetchVehicles();
+    
+    // Do an immediate fetch for the initial load
+    fetchVehicles(true);
+
+    // Setup an interval to poll for fresh data every 5 seconds
+    const intervalId = setInterval(() => {
+      fetchVehicles(false);
+    }, 5000);
+
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   const handleCloseTrackHistory = () => {
@@ -78,19 +136,21 @@ function App() {
 
   const handleShowTrackHistory = (data) => {
     //Checking if the track history is an array
-    if (data.track_history && Array.isArray(data.track_history)) {
+    if (data.track_history && Array.isArray(data.track_history) && data.track_history.length > 0) {
       //Filtering the track history to only include the required fields
       const processedTrackData = data.track_history.map((point) => ({
         location: [parseFloat(point.latitude), parseFloat(point.longitude)],
-        speed: parseFloat(point.speed).toFixed(2),
+        speed: parseFloat(point.speed || 0).toFixed(2),
+        distance: parseFloat(point.distance || 0).toFixed(2),
         timestamp: point.timestamp,
+        status: point.speed > 0 ? (point.speed < 5 ? 'Slow Moving' : 'Moving') : 'Idle'
       }));
       //Setting the track data and showing the track history
       setTrackData(processedTrackData);
       setShowTrackHistory(true);
     }
     else {
-      alert("No record found");
+      alert("No tracking data found for the selected time range.");
     }
 
     //Closing the detail view
@@ -116,7 +176,7 @@ function App() {
   );
 
   if (loading) {
-    return <div className="loading-container">Loading vehicle data...</div>;
+    return <LoadingScreen />;
   }
 
   if (error && vehicles.length === 0) {
@@ -131,7 +191,7 @@ function App() {
   return (
     <div className="app-container">
       <header>
-        <h1>Meowka</h1>
+        <TitleEffect text="meowka" />
       </header>
       <div className="main-content">
         <aside className="sidebar">

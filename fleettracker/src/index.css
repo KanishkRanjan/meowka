@@ -1,7 +1,35 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lexend:wght@300;400;500;600;700;800;900&display=swap");
+
 :root {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  /* Colors */
+  --bg-primary: #ebecea;
+  --bg-card: #f4f5f0;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f9faf7;
+  --text-main: #2d2d2d;
+  --text-muted: #7a7a7a;
+  --text-lighter: #9e9e9e;
+  --accent-primary: #e1ff26;
+
+  /* Status Colors */
+  --moving-color: #10b981;
+  --idle-color: #f59e0b;
+  --parked-color: #7a7a7a;
+  --track-history-color: #3b82f6;
+  --low-fuel-color: #ef4444;
+
+  /* Borders & Shadows (Low-contrast depth) */
+  --border-radius-extreme: 8px;
+  --border-radius-pill: 6px;
+  --border-radius-icon: 4px;
+  --shadow-subtle:
+    0 8px 32px rgba(0, 0, 0, 0.04), inset 0 2px 0 rgba(255, 255, 255, 0.6);
+  --shadow-active: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --border-transparent: 1px solid rgba(0, 0, 0, 0.03);
+
+  /* Typography */
+  --font-heading: "Lexend", sans-serif;
+  --font-body: "Inter", sans-serif;
 }
 
 * {
@@ -14,6 +42,35 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  font-family: var(--font-body);
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2 {
+  font-family: var(--font-heading);
+  letter-spacing: 0.03em;
+  font-weight: 500;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  font-weight: 500;
+}
+
+/* Base Container Card */
+.card-container {
+  background: var(--bg-card);
+  border-radius: var(--border-radius-extreme);
+  box-shadow: var(--shadow-subtle);
+  border: var(--border-transparent);
+  color: var(--text-main);
+  overflow: hidden;
 }
 
 .leaflet-popup-content-wrapper {

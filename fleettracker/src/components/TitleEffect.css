@@ -1,0 +1,40 @@
+.title-twr {
+  position: relative;
+  /* Font size ~80px + (10 layers * 6px shift) = ~140px total max height */
+  height: 100px;
+  display: flex;
+  align-items: flex-end;
+  margin-top: 16px;
+  cursor: default;
+}
+
+.title-layer {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  font-family: var(--font-heading);
+  font-weight: 800; /* Extra bold */
+  font-size: 5rem;
+  text-transform: lowercase;
+  margin: 0;
+  line-height: 1;
+  letter-spacing: -0.05em; /* Tighter letter spacing like reference */
+  transform: translate(-50%, calc(-8px * var(--layer-index)));
+  z-index: calc(20 - var(--layer-index));
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.outline-layer {
+  color: var(--bg-primary); /* Fill matches background to hide segments behind */
+  -webkit-text-stroke: 1.5px var(--text-main); /* Deep charcoal outline */
+}
+
+.solid-layer {
+  color: var(--text-main);
+  -webkit-text-stroke: 1.5px var(--text-main); /* Prevent shrinking */
+}
+
+/* Subtle interactive hover effect to make the tower fan out slightly */
+.title-twr:hover .title-layer {
+  transform: translate(-50%, calc(-10px * var(--layer-index)));
+}
