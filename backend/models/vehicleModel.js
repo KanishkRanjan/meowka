@@ -45,6 +45,10 @@ const vehicleSchema = new mongoose.Schema({
     enum: ["Moving", "Parked", "Idle", "Slow Moving"], 
     default: "Idle", 
   },
+  heading: {
+    type: Number,
+    default: 0,
+  }
 });
 
 module.exports = mongoose.model("Vehicle", vehicleSchema);

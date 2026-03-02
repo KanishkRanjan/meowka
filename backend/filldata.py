@@ -98,6 +98,12 @@ async def simulate_vehicle(vehicle_id, route):
                     if fuel <= 0.5:
                         fuel = 100.0
                     
+                    # Initialize heading if not set, else wobble it slightly for realism
+                    if 'initial_heading' not in locals():
+                        initial_heading = random.uniform(0, 360)
+                    else:
+                        initial_heading = (initial_heading + random.uniform(-5, 5)) % 360
+                    
                     point = next(gen)
                     timestamp = datetime.now().isoformat()
                     
@@ -106,6 +112,7 @@ async def simulate_vehicle(vehicle_id, route):
                         "latitude": point[1],
                         "longitude": point[0],
                         "speed": speed,
+                        "heading": initial_heading,
                         "fuelLeft": fuel,
                         "timestamp": timestamp
                     }

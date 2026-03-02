@@ -45,6 +45,7 @@ router.post('/addvehicle', async (req, res) => {
       total_distance,
       today_running,
       status,
+      heading: 0
     });
 
     res.status(201).json({ success: true, data: vehicle });
@@ -68,6 +69,23 @@ router.post('/addinfo/:id', async (req, res) => {
     const prevCoords = vehicle.location_coordinates;
     const newCoords = { latitude, longitude };
 
+    // Function to calculate heading based on two lat/lng points
+    const calculateHeading = (lat1, lon1, lat2, lon2) => {
+      if (lat1 === lat2 && lon1 === lon2) return 0;
+      
+      const radLat1 = lat1 * Math.PI / 180;
+      const radLat2 = lat2 * Math.PI / 180;
+      const deltaLon = (lon2 - lon1) * Math.PI / 180;
+
+      const y = Math.sin(deltaLon) * Math.cos(radLat2);
+      const x = Math.cos(radLat1) * Math.sin(radLat2) -
+                Math.sin(radLat1) * Math.cos(radLat2) * Math.cos(deltaLon);
+      
+      let heading = Math.atan2(y, x) * 180 / Math.PI;
+      heading = (heading + 360) % 360;
+      return heading;
+    };
+
     // Distance Calculation using Haversine Formula
     const toRad = (value) => (value * Math.PI) / 180;
     const R = 6371; // Earth's radius in km
@@ -79,17 +97,36 @@ router.post('/addinfo/:id', async (req, res) => {
         Math.cos(toRad(newCoords.latitude)) *
         Math.sin(dLon / 2) ** 2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distanceMoved = +(R * c).toFixed(5); // Round to 5 decimal places
+    
+    let distanceMoved = 0;
+    const d = R * c;
+    // Sanity Check: If distance > 1km in a single update, it's likely a GPS jump
+    if (d < 1.0) {
+        distanceMoved = +d.toFixed(5);
+    } else {
+        console.warn(`[API] Ignored large coordinate jump (${d.toFixed(2)}km) for vehicle ${vehicleId}`);
+    }
 
     // Update vehicle fields
     vehicle.location_coordinates = newCoords;
-    vehicle.speed = speed;
+    
+    // Sanity Cap: 120 km/h
+    let safeSpeed = speed;
+    if (speed > 120) {
+        console.warn(`[API] Capping unrealistic speed (${speed} km/h) for vehicle ${vehicleId}`);
+        safeSpeed = 120;
+    }
+    
+    vehicle.speed = safeSpeed;
+    if (distanceMoved > 0 && prevCoords.latitude && prevCoords.longitude) {
+         vehicle.heading = calculateHeading(prevCoords.latitude, prevCoords.longitude, newCoords.latitude, newCoords.longitude);
+    }
     vehicle.distance += distanceMoved;
     vehicle.total_distance += distanceMoved;
 
     // Update max_speed
-    if (speed > vehicle.max_speed) {
-      vehicle.max_speed = speed;
+    if (safeSpeed > vehicle.max_speed) {
+      vehicle.max_speed = safeSpeed;
     }
 
     // Update today's running if date matches
@@ -100,7 +137,7 @@ router.post('/addinfo/:id', async (req, res) => {
     }
 
     // Update status
-    vehicle.status = speed > 0 ? (speed < 5 ? 'Slow Moving' : 'Moving') : 'Idle';
+    vehicle.status = safeSpeed > 0 ? (safeSpeed < 5 ? 'Slow Moving' : 'Moving') : 'Idle';
 
     // Optional: Update fuel efficiency
     if (vehicle.last_fuel_left != null && distanceMoved > 0) {

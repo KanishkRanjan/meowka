@@ -715,28 +715,29 @@ header h1 {
   width: 40px;
   height: 40px;
   border-radius: var(--border-radius-icon);
-  background-color: white;
+  background-color: var(--bg-surface);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border: var(--border-transparent);
+  box-shadow: var(--shadow-subtle);
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .map-control-btn:hover {
-  background-color: #f3f4f6;
+  background-color: var(--bg-surface-hover);
+  box-shadow: var(--shadow-active);
 }
 
 .map-control-btn:active {
-  background-color: #e5e7eb;
+  background-color: var(--bg-card);
 }
 
 .map-control-btn svg {
   width: 20px;
   height: 20px;
-  color: #374151;
+  color: var(--text-main);
 }
 
 .map-direction-controls {
@@ -760,8 +761,8 @@ header h1 {
 .map-control-btn.direction-down,
 .map-control-btn.direction-left,
 .map-control-btn.direction-right {
-  background-color: rgba(255, 255, 255, 0.9);
-  border: 1px solid #e5e7eb;
+  background-color: var(--bg-surface);
+  border: var(--border-transparent);
 }
 
 /* Hover state for direction buttons */
@@ -769,16 +770,17 @@ header h1 {
 .map-control-btn.direction-down:hover,
 .map-control-btn.direction-left:hover,
 .map-control-btn.direction-right:hover {
-  background-color: rgba(243, 244, 246, 0.9);
+  background-color: var(--bg-surface-hover);
 }
 
 .empty-list-message {
   padding: 1.5rem;
   text-align: center;
-  color: #6b7280;
-  background-color: #f9fafb;
-  border-radius: 6px;
+  color: var(--text-muted);
+  background-color: var(--bg-card);
+  border-radius: var(--border-radius-pill);
   margin: 1rem 0;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .empty-list-message p {
@@ -787,7 +789,7 @@ header h1 {
 
 .empty-list-message p:first-child {
   font-weight: 500;
-  color: #4b5563;
+  color: var(--text-main);
 }
 
 /* Enhanced detail panel styles for better scrolling */
@@ -801,7 +803,7 @@ header h1 {
 }
 
 .detail-section:hover {
-  background-color: rgba(243, 244, 246, 0.4);
+  background-color: var(--bg-surface-hover);
 }
 
 .section-title {
@@ -947,7 +949,7 @@ header h1 {
 }
 
 .view-btn:hover {
-  background-color: #2563eb;
+  background-color: #c9e622;
 }
 
 .cancel-btn {
@@ -956,7 +958,7 @@ header h1 {
 }
 
 .cancel-btn:hover {
-  background-color: #d1d5db;
+  background-color: var(--bg-surface-hover);
 }
 
 /* Track History Controls */
@@ -965,8 +967,8 @@ header h1 {
   bottom: 0;
   left: 0;
   width: 100%;
-  background-color: white;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  background-color: var(--bg-surface);
+  box-shadow: var(--shadow-subtle);
   border-top: var(--border-transparent);
   padding: 15px 20px;
   z-index: 1000;
@@ -1006,7 +1008,7 @@ header h1 {
 }
 
 .close-track-history:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--bg-surface-hover);
   color: var(--text-main);
 }
 
@@ -1039,7 +1041,7 @@ header h1 {
 }
 
 .play-button {
-  background: white;
+  background: var(--bg-surface);
   border: var(--border-transparent);
   width: 40px;
   height: 40px;
@@ -1052,7 +1054,7 @@ header h1 {
 }
 
 .play-button:hover {
-  background: #f9fafb;
+  background: var(--bg-surface-hover);
 }
 
 .speed-control {
@@ -1060,7 +1062,7 @@ header h1 {
 }
 
 .speed-dropdown-button {
-  background: white;
+  background: var(--bg-surface);
   border: var(--border-transparent);
   border-radius: 4px;
   padding: 8px 12px;
@@ -1080,10 +1082,10 @@ header h1 {
   top: -180px;
   left: 0;
   min-width: 120px;
-  background: white;
+  background: var(--bg-surface);
   border: var(--border-transparent);
   border-radius: 4px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-subtle);
   z-index: 1001;
 }
 
@@ -1096,11 +1098,11 @@ header h1 {
 }
 
 .speed-option:hover {
-  background: #f9fafb;
+  background: var(--bg-surface-hover);
 }
 
 .speed-option.selected {
-  background: #f3f4f6;
+  background: var(--bg-card);
 }
 
 .check-icon {
@@ -1134,7 +1136,7 @@ header h1 {
   height: 4px;
   -webkit-appearance: none;
   appearance: none;
-  background: #e5e7eb;
+  background: var(--bg-card);
   border-radius: 2px;
   outline: none;
 }
@@ -1144,7 +1146,7 @@ header h1 {
   appearance: none;
   width: 18px;
   height: 18px;
-  background: white;
+  background: var(--bg-surface);
   border: 2px solid var(--accent-primary);
   border-radius: var(--border-radius-pill);
   cursor: pointer;
@@ -1153,7 +1155,7 @@ header h1 {
 .timeline-slider::-moz-range-thumb {
   width: 18px;
   height: 18px;
-  background: white;
+  background: var(--bg-surface);
   border: 2px solid var(--accent-primary);
   border-radius: var(--border-radius-pill);
   cursor: pointer;

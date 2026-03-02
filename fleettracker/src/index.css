@@ -74,15 +74,30 @@ h6 {
 }
 
 .leaflet-popup-content-wrapper {
-  border-radius: 8px;
+  background-color: var(--bg-surface);
+  border-radius: var(--border-radius-extreme);
+  border: var(--border-transparent);
+  box-shadow: var(--shadow-subtle);
+  color: var(--text-main);
   padding: 0;
+}
+
+.leaflet-popup-tip {
+  background-color: var(--bg-surface);
+  box-shadow: var(--shadow-subtle);
 }
 
 .leaflet-popup-content {
   margin: 12px;
+  font-family: var(--font-body);
 }
 
 .leaflet-container a.leaflet-popup-close-button {
   top: 8px;
   right: 8px;
+  color: var(--text-muted);
+}
+
+.leaflet-container a.leaflet-popup-close-button:hover {
+  color: var(--text-main);
 }

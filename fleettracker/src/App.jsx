@@ -16,26 +16,6 @@ function App() {
   const [trackData, setTrackData] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Store previous vehicles to calculate heading
-  const prevVehiclesRef = useRef([]);
-
-  // Calculate heading based on two lat/lng points
-  const calculateHeading = (lat1, lon1, lat2, lon2) => {
-    if (lat1 === lat2 && lon1 === lon2) return 0;
-    
-    const radLat1 = lat1 * Math.PI / 180;
-    const radLat2 = lat2 * Math.PI / 180;
-    const deltaLon = (lon2 - lon1) * Math.PI / 180;
-
-    const y = Math.sin(deltaLon) * Math.cos(radLat2);
-    const x = Math.cos(radLat1) * Math.sin(radLat2) -
-              Math.sin(radLat1) * Math.cos(radLat2) * Math.cos(deltaLon);
-    
-    let heading = Math.atan2(y, x) * 180 / Math.PI;
-    heading = (heading + 360) % 360;
-    return heading;
-  };
-
   //fetching vehicles from backend
   useEffect(() => {
     const fetchVehicles = async (isInitial = false) => {
@@ -56,26 +36,10 @@ function App() {
         }
 
         const vehiclesData = responseData.data;
-        const previousVehicles = prevVehiclesRef.current;
-        
-        // Make sure to include all the fields from the backend
         const transformedData = vehiclesData.map((vehicle, index) => {
           const id = vehicle.vehicle_id || index + 1;
           const lat = vehicle.location_coordinates.latitude;
           const lng = vehicle.location_coordinates.longitude;
-          
-          let heading = 0;
-          const prevVehicle = previousVehicles.find(v => v.id === id);
-          
-          if (prevVehicle && prevVehicle.position) {
-            const [prevLat, prevLng] = prevVehicle.position;
-            // Only update heading if the vehicle actually moved
-            if (lat !== prevLat || lng !== prevLng) {
-               heading = calculateHeading(prevLat, prevLng, lat, lng);
-            } else {
-               heading = prevVehicle.heading || 0; // Keep old heading if stationary
-            }
-          }
 
           return {
             id,
@@ -86,7 +50,7 @@ function App() {
             distance: vehicle.distance ? vehicle.distance.toFixed(2) : "0.00",
             fuel: Number(vehicle.fuel) || 0,
             position: [lat, lng],
-            heading,
+            heading: vehicle.heading || 0,
             owner: vehicle.owner,
             last_service_date: vehicle.last_service_date,
             next_service_due: vehicle.next_service_due,
@@ -98,8 +62,6 @@ function App() {
             today_running: vehicle.today_running ? vehicle.today_running.toFixed(2) : "0.00",
           };
         });
-
-        prevVehiclesRef.current = transformedData;
         
         setVehicles(transformedData);
         // Ensure our currently selected vehicle is also updated with fresh live data

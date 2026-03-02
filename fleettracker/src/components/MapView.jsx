@@ -238,47 +238,58 @@ const MapView = ({
   const [status, setStatus] = useState("Idle");
   const [zoomLevel, setZoomLevel] = useState(12);
 
-  // Listener to accurately track zoom levels
-  const ZoomListener = () => {
-    const map = useMapEvents({
-      zoomend: () => setZoomLevel(map.getZoom()),
-      zoomstart: () => setZoomLevel(map.getZoom()),
-    });
-    useEffect(() => {
-      setZoomLevel(map.getZoom());
-    }, [map]);
-    return null;
-  };
+// Listener to accurately track zoom levels
+const ZoomListener = ({ setZoomLevel }) => {
+  useMapEvents({
+    zoomend: (e) => setZoomLevel(e.target.getZoom()),
+    zoomstart: (e) => setZoomLevel(e.target.getZoom()),
+  });
+  return null;
+};
 
-  // Component to handle map recentering when a vehicle is selected
-  const MapCenter = ({ selectedVehicle, showTrackHistory, displayedTrackData }) => {
-    const map = useMap();
-    useEffect(() => {
-      // If showing history, fit the map to the entire history route bounds ONCE when data loads
-      if (showTrackHistory && displayedTrackData && displayedTrackData.length > 0) {
-        const latLngs = displayedTrackData
-          .map(pt => pt.location)
-          .filter(loc => Array.isArray(loc) && loc.length === 2 && !isNaN(loc[0]) && !isNaN(loc[1]))
-          .map(loc => [parseFloat(loc[0]), parseFloat(loc[1])]);
-          
-        if (latLngs.length > 0) {
-          const bounds = L.latLngBounds(latLngs);
-          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, duration: 1.5 });
-        }
-      } 
-      // Otherwise, focus on the live vehicle if selected
-      else if (selectedVehicle && selectedVehicle.position && !showTrackHistory) {
-        map.flyTo(
-          [parseFloat(selectedVehicle.position[0]), parseFloat(selectedVehicle.position[1])],
-          15, // Zoom level when focused
-          {
-            duration: 1.5, // Smoother animation
-          }
-        );
+// Component to handle map recentering when a vehicle is selected
+const MapCenter = ({ selectedVehicle, showTrackHistory, displayedTrackData }) => {
+  const map = useMap();
+  const lastVehicleIdRef = useRef(null);
+
+  useEffect(() => {
+    // If showing history, fit the map to the entire history route bounds ONCE when data loads
+    if (showTrackHistory && displayedTrackData && displayedTrackData.length > 0) {
+      const latLngs = displayedTrackData
+        .map(pt => pt.location)
+        .filter(loc => Array.isArray(loc) && loc.length === 2 && !isNaN(loc[0]) && !isNaN(loc[1]))
+        .map(loc => [parseFloat(loc[0]), parseFloat(loc[1])]);
+        
+      if (latLngs.length > 0) {
+        const bounds = L.latLngBounds(latLngs);
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, duration: 1.5 });
       }
-    }, [selectedVehicle, showTrackHistory, displayedTrackData, map]); // Removed currentPosition to avoid panning on every playback tick
-    return null;
-  };
+    } 
+    // Otherwise, focus on the live vehicle if selected
+    else if (selectedVehicle && selectedVehicle.position && !showTrackHistory) {
+      const [lat, lng] = [parseFloat(selectedVehicle.position[0]), parseFloat(selectedVehicle.position[1])];
+      const isNewVehicle = lastVehicleIdRef.current !== selectedVehicle.id;
+      
+      // Convert LatLng to screen coordinates to make threshold "zoom-aware"
+      const currentLatLng = L.latLng(lat, lng);
+      const currentPoint = map.latLngToContainerPoint(currentLatLng);
+      const centerPoint = map.getSize().divideBy(2);
+      const pixelDist = currentPoint.distanceTo(centerPoint);
+
+      // Threshold in pixels: only re-center if vehicle is > 15 pixels from center
+      const pixelThreshold = 15;
+
+      if (isNewVehicle) {
+        map.flyTo([lat, lng], 15, { duration: 1.5 });
+        lastVehicleIdRef.current = selectedVehicle.id;
+      } else if (pixelDist > pixelThreshold) {
+        // Smoothly pan over 2.5 seconds (polling is every 5s) to create fluid motion
+        map.panTo([lat, lng], { animate: true, duration: 2.5, easeLinearity: 0.25 });
+      }
+    }
+  }, [selectedVehicle, showTrackHistory, map]); 
+  return null;
+}; 
 
   // Calculate heading based on two lat/lng points
   const calculateHeading = (lat1, lon1, lat2, lon2) => {
@@ -387,18 +398,15 @@ const MapView = ({
 
     const isTiny = size <= 14;
 
-    // Render simple dark geometric dots when zoomed far out
+    // Use a stable HTML string. Leaflet is sensitive to HTML changes.
+    // Adding a transition to the rotation makes it smoother.
     const imageHtml = isTiny && !isSelected
-        ? `<div style="width: ${size*0.6}px; height: ${size*0.6}px; background-color: #1a1a1a; border-radius: 50%; border: 1.5px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.5); z-index: 2; position: relative;"></div>`
-        : `<img src="${busImage}" style="height: ${size}px; transform: rotate(${heading}deg); transition: transform 0.3s ease, height 0.2s ease; mix-blend-mode: multiply; z-index: 2; position: relative;" />`;
+        ? `<div style="width: ${size*0.6}px; height: ${size*0.6}px; background-color: #1a1a1a; border-radius: 50%; border: 1.5px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.5); pointer-events: none;"></div>`
+        : `<img src="${busImage}" style="height: ${size}px; width: auto; transform: rotate(${heading}deg); transition: transform 0.8s linear, height 0.2s ease; mix-blend-mode: multiply; pointer-events: none;" />`;
 
     return L.divIcon({
       className: `vehicle-marker ${isSelected ? "selected" : ""}`,
-      html: `
-        <div class="modern-marker-img" style="display: flex; justify-content: center; align-items: center; width: ${size}px; height: ${size}px; position: relative;">
-          ${imageHtml}
-        </div>
-      `,
+      html: `<div class="marker-container" style="display: flex; justify-content: center; align-items: center; width: ${size}px; height: ${size}px;">${imageHtml}</div>`,
       iconSize: [size, size],
       iconAnchor: [size / 2, size / 2],
     });
@@ -450,7 +458,7 @@ const MapView = ({
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         />
-        <ZoomListener />
+        <ZoomListener setZoomLevel={setZoomLevel} />
         <MapCenter 
           selectedVehicle={selectedVehicle}
           showTrackHistory={showTrackHistory}

@@ -68,11 +68,23 @@ async def fetch_and_push_gtfs_data(websocket):
             dt = datetime.fromtimestamp(bus["timestamp"])
             iso_timestamp = dt.isoformat()
 
+            # GTFS Realtime speed is in meters/second. Convert to km/h.
+            raw_speed = bus["speed"]
+            speed_kmh = raw_speed * 3.6
+            
+            # Additional safety cap for the seeder
+            if speed_kmh > 100:
+                speed_kmh = 100.0
+                
+            # Extract GTFS bearing (direction of travel from 0 to 360)
+            bearing = v.position.bearing if v.position.HasField('bearing') else 0.0
+
             payload = {
                 "vehicle_id": bus["vehicle_id"],
                 "latitude": bus["latitude"],
                 "longitude": bus["longitude"],
-                "speed": bus["speed"],
+                "speed": speed_kmh,
+                "heading": bearing,
                 "fuelLeft": fuel,
                 "timestamp": iso_timestamp
             }
