@@ -4,6 +4,7 @@
   "description": "Root runner for meowka project",
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix fleettracker\"",
+    "start": "npm run build --prefix fleettracker && npm start --prefix backend",
     "install-all": "npm install --prefix backend && npm install --prefix fleettracker"
   },
   "devDependencies": {
